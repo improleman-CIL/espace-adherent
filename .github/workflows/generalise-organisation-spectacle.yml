@@ -1,0 +1,57 @@
+name: Généraliser organisation spectacle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/generalise-organisation-spectacle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Remplacer les intitulés génériques match par spectacle
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+              ('Organiser un match d’impro.', 'Organiser un spectacle.'),
+              ('Organiser un match d\'impro.', 'Organiser un spectacle.'),
+              ('Organisation d’un match', 'Organisation d’un spectacle'),
+              ('organisation d’un match', 'organisation d’un spectacle'),
+              ('Organiser un match', 'Organiser un spectacle'),
+          ]
+
+          changed = False
+          for old, new in replacements:
+              if old in s:
+                  s = s.replace(old, new)
+                  changed = True
+
+          if not changed:
+              raise SystemExit('Aucun intitulé générique à modifier dans index.html')
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Enregistrer la modification
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Aucune modification à enregistrer."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Généralise l’organisation d’un match en organisation de spectacle"
+          git push
