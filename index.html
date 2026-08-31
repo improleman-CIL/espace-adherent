@@ -4,6 +4,13 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Espace adhérents du Collectif d’Improvisation du Léman.">
+  <meta name="theme-color" content="#2d2861">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CIL Adhérents">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
   <title>Espace adhérents CIL</title>
   <style>
     :root {
@@ -122,6 +129,47 @@
     .button:hover { transform: translateY(-2px); }
     .button.secondary { border-color: rgba(255,255,255,.58); background: transparent; box-shadow: none; }
     .button.ink { background: var(--night); box-shadow: none; }
+    button.button { font: inherit; cursor: pointer; }
+    .button.install-button {
+      color: var(--night);
+      background: var(--yellow);
+      box-shadow: 0 10px 30px rgba(245,214,109,.25);
+    }
+    .button.install-button.installed { color: var(--white); background: rgba(255,255,255,.18); box-shadow: none; cursor: default; }
+    .install-dialog {
+      width: min(calc(100% - 32px), 510px);
+      padding: 0;
+      border: 0;
+      border-radius: 28px;
+      color: var(--ink);
+      background: var(--white);
+      box-shadow: 0 24px 90px rgba(24,20,65,.38);
+    }
+    .install-dialog::backdrop { background: rgba(28,24,72,.7); backdrop-filter: blur(4px); }
+    .install-dialog-content { position: relative; padding: 2rem; }
+    .install-dialog-icon { display: block; width: 86px; height: 86px; margin-bottom: 1rem; border-radius: 22px; }
+    .install-dialog h2 { margin-bottom: .8rem; font-size: clamp(1.8rem, 7vw, 2.7rem); }
+    .install-dialog p { color: var(--muted); }
+    .install-dialog ol { padding-left: 1.35rem; }
+    .install-dialog li { margin-bottom: .55rem; }
+    .install-dialog .button { margin-top: .7rem; }
+    .dialog-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 0;
+      border-radius: 50%;
+      color: var(--night);
+      background: var(--lilac);
+      cursor: pointer;
+      font: inherit;
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
     .hero-card { justify-self: end; max-width: 330px; padding: 1.55rem; border: 1px solid rgba(255,255,255,.18); border-radius: 34px; background: rgba(255,255,255,.12); box-shadow: var(--shadow); backdrop-filter: blur(14px); transform: rotate(1.5deg); }
     .hero-card img { display: block; width: 175px; margin: 0 auto 1rem; filter: drop-shadow(0 8px 12px rgba(0,0,0,.2)); }
     .hero-card strong { display: block; margin-bottom: .4rem; color: var(--yellow); text-transform: uppercase; }
@@ -343,6 +391,7 @@
           <h1>Tout comprendre.<br><em>Oser participer.</em></h1>
           <p class="hero-copy">Le livret donne les repères. Ici, on déroule le mode d’emploi : ateliers, formats, contacts, documents et organisation des spectacles — mission par mission.</p>
           <div class="actions">
+            <button class="button install-button" type="button" id="install-app">Installer l’appli CIL ↓</button>
             <a class="button" href="#match">Je veux aider sur un spectacle ↓</a>
             <a class="button secondary" href="#architecture">Comprendre les deux sites</a>
           </div>
@@ -644,6 +693,16 @@
   <footer><div class="wrap footer-row"><p>Collectif d’Improvisation du Léman · Saison 2026-2027</p><p><a href="#accueil">Retour en haut ↑</a></p></div></footer>
   <button class="to-top" type="button" aria-label="Retour en haut" title="Retour en haut">↑</button>
 
+  <dialog class="install-dialog" id="install-dialog" aria-labelledby="install-dialog-title">
+    <div class="install-dialog-content">
+      <button class="dialog-close" type="button" id="install-dialog-close" aria-label="Fermer">×</button>
+      <img class="install-dialog-icon" src="./icon-192.png" alt="Icône du CIL">
+      <h2 id="install-dialog-title">Installer l’appli CIL</h2>
+      <div id="install-instructions"></div>
+      <button class="button ink" type="button" id="install-dialog-ok">J’ai compris</button>
+    </div>
+  </dialog>
+
   <script>
     const menuButton = document.querySelector('.menu-button');
     const menu = document.querySelector('.menu');
@@ -685,5 +744,60 @@
         card.hidden = filter !== 'all' && !tags.includes(filter);
       });
     }));
+
+    const installButton = document.getElementById('install-app');
+    const installDialog = document.getElementById('install-dialog');
+    const installInstructions = document.getElementById('install-instructions');
+    let deferredInstallPrompt = null;
+
+    const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const markInstalled = () => {
+      installButton.textContent = 'Appli CIL installée ✓';
+      installButton.classList.add('installed');
+      installButton.disabled = true;
+    };
+
+    if (isInstalled()) markInstalled();
+
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+    });
+
+    installButton.addEventListener('click', async () => {
+      if (isInstalled()) {
+        markInstalled();
+        return;
+      }
+
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        if (choice.outcome === 'accepted') markInstalled();
+        return;
+      }
+
+      const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      installInstructions.innerHTML = isiOS
+        ? '<p>Sur iPhone ou iPad, l’installation se fait depuis Safari :</p><ol><li>touchez le bouton <strong>Partager</strong> ;</li><li>choisissez <strong>Sur l’écran d’accueil</strong> ;</li><li>touchez <strong>Ajouter</strong>.</li></ol>'
+        : '<p>Ouvrez le menu de votre navigateur, puis choisissez <strong>Installer l’application</strong> ou <strong>Ajouter à l’écran d’accueil</strong>. Sur Android, utilisez de préférence Chrome.</p>';
+      installDialog.showModal();
+    });
+
+    document.getElementById('install-dialog-close').addEventListener('click', () => installDialog.close());
+    document.getElementById('install-dialog-ok').addEventListener('click', () => installDialog.close());
+    installDialog.addEventListener('click', event => {
+      if (event.target === installDialog) installDialog.close();
+    });
+    window.addEventListener('appinstalled', markInstalled);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(error => {
+          console.warn('Service worker CIL non enregistré :', error);
+        });
+      });
+    }
   </script>
 </body></html>
