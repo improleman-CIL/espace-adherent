@@ -1,0 +1,57 @@
+name: Passer l’icône PWA sur fond blanc
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/icone-pwa-blanche.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Brancher la nouvelle icône
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+          old = './icon-192.png'
+          new = './icon-192-white.png'
+
+          if new in text:
+              print('La nouvelle icône est déjà branchée.')
+              raise SystemExit(0)
+
+          count = text.count(old)
+          if count != 3:
+              raise SystemExit(f'Nombre de références inattendu : {count}')
+
+          path.write_text(text.replace(old, new), encoding='utf-8')
+
+      - name: Vérifier la nouvelle version
+        run: |
+          python -m json.tool manifest.webmanifest >/dev/null
+          node --check sw.js
+          grep -q 'icon-192-white.png' index.html
+          grep -q 'icon-512-white.png' manifest.webmanifest
+
+      - name: Publier la modification
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Aucune modification à enregistrer."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Utilise l’icône CIL sur fond blanc"
+          git push
